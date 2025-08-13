@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта заброшенных объектов Нижнего Новгорода</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            color: #333;
+            line-height: 1.6;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 1600px;
+            margin: 0 auto;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Стили для панели информации */
+        .info-panel {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 15px;
+        }
+        
+        .filters {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .filters h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .filter-btn {
+            background: #ecf0f1;
+            border: none;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .filter-btn:hover {
+            background: #3498db;
+            color: white;
+        }
+        
+        .filter-btn.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .search-box {
+            position: relative;
+            margin: 15px 0;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #7f8c8d;
+        }
+        
+        .objects-list {
+            margin-top: 20px;
+        }
+        
+        .objects-list h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .object-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid #3498db;
+        }
+        
+        .object-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background: #fff;
+        }
+        
+        .object-item.bunker {
+            border-left-color: #e74c3c;
+        }
+        
+        .object-item.metro {
+            border-left-color: #9b59b6;
+        }
+        
+        .object-item.hatch {
+            border-left-color: #34495e;
+        }
+        
+        .object-item.vodokanal {
+            border-left-color: #1abc9c;
+        }
+        
+        .object-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .object-meta {
+            display: flex;
+            justify-content: space-between;
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        
+        .security-indicator {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        .security-low {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .security-medium {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .security-high {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .access-indicator {
+            display: flex;
+            margin: 8px 0;
+        }
+        
+        .access-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #bdc3c7;
+        }
+        
+        .access-dot.active {
+            background: #e74c3c;
+        }
+        
+        /* Стили для карты */
+        #map {
+            flex: 1;
+            height: 100%;
+            z-index: 100;
+        }
+        
+        /* Легенда карты */
+        .legend {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            max-width: 300px;
+        }
+        
+        .legend h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .legend-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .legend-bunker {
+            background: #e74c3c;
+        }
+        
+        .legend-metro {
+            background: #9b59b6;
+        }
+        
+        .legend-hatch {
+            background: #34495e;
+        }
+        
+        .legend-vodokanal {
+            background: #1abc9c;
+        }
+        
+        .legend-security {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        
+        .security-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .info-panel {
+                width: 100%;
+                height: 40vh;
+            }
+            
+            .legend {
+                max-width: 200px;
+                font-size: 12px;
+            }
+        }
+        
+        .danger-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="info-panel">
+            <div class="header">
+                <h1><i class="fas fa-radiation"></i> Заброшенные объекты Н.Новгорода</h1>
+                <p>Карта бомбоубежищ, входов в метро и объектов Водоканала</p>
+            </div>
+            
+            <div class="filters">
+                <h2><i class="fas fa-filter"></i> Фильтры</h2>
+                <div class="filter-options">
+                    <button class="filter-btn active" data-security="all">
+                        <i class="fas fa-globe"></i> Все объекты
+                    </button>
+                    <button class="filter-btn" data-security="0">
+                        <i class="fas fa-unlock"></i> Без охраны
+                    </button>
+                    <button class="filter-btn" data-security="1">
+                        <i class="fas fa-user-clock"></i> Периодическая
+                    </button>
+                    <button class="filter-btn" data-security="2">
+                        <i class="fas fa-camera"></i> Постоянная
+                    </button>
+                </div>
+                
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Поиск объектов...">
+                </div>
+            </div>
+            
+            <div class="objects-list">
+                <h2><i class="fas fa-map-marker-alt"></i> Объекты</h2>
+                <div id="objects-container">
+                    <!-- Список объектов будет загружен здесь -->
+                </div>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="legend">
+            <h3><i class="fas fa-map-legend"></i> Легенда</h3>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-icon legend-bunker">
+                        <i class="fas fa-radiation"></i>
+                    </div>
+                    <span>Бункеры</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon legend-metro">
+                        <i class="fas fa-subway"></i>
+                    </div>
+                    <span>Метро</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon legend-hatch">
+                        <i class="fas fa-warehouse"></i>
+                    </div>
+                    <span>Люки</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon legend-vodokanal">
+                        <i class="fas fa-faucet"></i>
+                    </div>
+                    <span>Водоканал</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <h3><i class="fas fa-shield-alt"></i> Уровень охраны</h3>
+                <div class="legend-item">
+                    <div class="security-color" style="background: #27ae60"></div>
+                    <span>Без охраны</span>
+                </div>
+                <div class="legend-item">
+                    <div class="security-color" style="background: #f39c12"></div>
+                    <span>Периодическая</span>
+                </div>
+                <div class="legend-item">
+                    <div class="security-color" style="background: #e74c3c"></div>
+                    <span>Постоянная</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Инициализация карты (центр - Нижний Новгород)
+        const map = L.map('map').setView([56.326944, 44.0075], 13);
+
+        // Слой OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Иконки для разных типов объектов
+        const icons = {
+            bunker: L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div style="background-color:#e74c3c; border-radius:50%; width:36px;height:36px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-radiation" style="color:white; font-size:18px;"></i></div>',
+                iconSize: [36, 36]
+            }),
+            metro: L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div style="background-color:#9b59b6; border-radius:50%; width:32px;height:32px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-subway" style="color:white; font-size:16px;"></i></div>',
+                iconSize: [32, 32]
+            }),
+            hatch: L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div style="background-color:#34495e; border-radius:50%; width:28px;height:28px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-warehouse" style="color:white; font-size:14px;"></i></div>',
+                iconSize: [28, 28]
+            }),
+            vodokanal: L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div style="background-color:#1abc9c; border-radius:50%; width:32px;height:32px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-faucet" style="color:white; font-size:16px;"></i></div>',
+                iconSize: [32, 32]
+            })
+        };
+
+        // Данные объектов (35 объектов Нижнего Новгорода)
+        const locations = [
+            // Бункеры (10 объектов)
+            {
+                id: 1,
+                coords: [56.3283, 44.0072],
+                type: "bunker",
+                title: "Бункер НКВД в Почаинском овраге",
+                security: 0,
+                access: 2,
+                description: "Заброшен с 1990 года. Вход - дыра в бетонной стене. Частично затоплен.",
+                condition: "Аварийное",
+                last_update: "2023-08-15",
+                danger: true
+            },
+            {
+                id: 2,
+                coords: [56.3475, 43.8786],
+                type: "bunker",
+                title: "Бомбоубежище под общежитием",
+                security: 1,
+                access: 3,
+                description: "Периодические обходы охраны. 3 точки входа. Сохранились системы вентиляции.",
+                condition: "Среднее",
+                last_update: "2023-07-20"
+            },
+            {
+                id: 3,
+                coords: [56.3333, 44.0000],
+                type: "bunker",
+                title: "Секретный объект №74",
+                security: 2,
+                access: 4,
+                description: "Постоянная охрана, датчики движения, 5 заборов. Бывший бункер Сталина.",
+                condition: "Хорошее",
+                last_update: "2022-11-30"
+            },
+            {
+                id: 4,
+                coords: [56.3247, 43.9450],
+                type: "bunker",
+                title: "ЗС «Казино»",
+                security: 0,
+                access: 1,
+                description: "Открытый доступ. 2 входа через люки. В 2000-х здесь было нелегальное казино.",
+                condition: "Плохое",
+                last_update: "2023-08-10"
+            },
+            {
+                id: 6,
+                coords: [56.2383, 43.4617],
+                type: "bunker",
+                title: "Бомбоубежище ГАЗ №84",
+                security: 2,
+                access: 4,
+                description: "Круглосуточная охрана, видеонаблюдение. Проход только с сотрудником завода.",
+                condition: "Хорошее",
+                last_update: "2022-09-01"
+            },
+            {
+                id: 7,
+                coords: [56.3331, 43.9458],
+                type: "bunker",
+                title: "Противоатомный бункер на Стрелке",
+                security: 1,
+                access: 3,
+                description: "После пожара 2017 года частично разрушен. Планировался под музей.",
+                condition: "Аварийное",
+                last_update: "2023-05-01",
+                danger: true
+            },
+            {
+                id: 8,
+                coords: [56.3260, 44.0038],
+                type: "bunker",
+                title: "Бункер в Кремле",
+                security: 2,
+                access: 4,
+                description: "Считается одним из немногих рабочих убежищ. Доступ ограничен.",
+                condition: "Отличное",
+                last_update: "2023-04-15"
+            },
+            {
+                id: 11,
+                coords: [56.3400, 43.8500],
+                type: "bunker",
+                title: "Заброшенный командный пункт ПВО",
+                security: 0,
+                access: 2,
+                description: "Расположен в лесном массиве Сормовского парка. Сохранились вентиляционные шахты.",
+                condition: "Плохое",
+                last_update: "2023-09-05"
+            },
+            {
+                id: 26,
+                coords: [56.3075, 43.9819],
+                type: "bunker",
+                title: "ДК им. Ленина",
+                security: 1,
+                access: 2,
+                description: "Заброшенный дворец культуры 1927 г. Аварийное состояние после пожара.",
+                condition: "Критическое",
+                last_update: "2025-07-01",
+                danger: true
+            },
+            {
+                id: 28,
+                coords: [56.3267, 44.0065],
+                type: "bunker",
+                title: "Дом Чекиста (ДК ГУВД)",
+                security: 1,
+                access: 3,
+                description: "Бывшая коммуна НКВД с тиром и подземными туннелями. Легенды о пыточных подвалах.",
+                condition: "Среднее",
+                last_update: "2025-07-01"
+            },
+            
+            // Метро (5 объектов)
+            {
+                id: 5,
+                coords: [56.3317, 43.9764],
+                type: "metro",
+                title: "Заброшенный тоннель метро",
+                security: 1,
+                access: 3,
+                description: "Охрана 3 раза в сутки. Люк заварен, требуется болгарка для входа.",
+                condition: "Опасное",
+                last_update: "2023-06-12",
+                danger: true
+            },
+            {
+                id: 12,
+                coords: [56.2925, 43.9367],
+                type: "metro",
+                title: "Строящаяся станция «Оперный театр»",
+                security: 1,
+                access: 3,
+                description: "Законсервированная стройплощадка с 1990-х. Недостроенные платформы и тоннели.",
+                condition: "Аварийное",
+                last_update: "2023-08-22",
+                danger: true
+            },
+            {
+                id: 13,
+                coords: [56.3128, 44.0511],
+                type: "metro",
+                title: "Технический тупик за станцией «Горьковская»",
+                security: 2,
+                access: 4,
+                description: "Заброшенные служебные помещения. Доступ только для сотрудников метрополитена.",
+                condition: "Среднее",
+                last_update: "2023-07-30"
+            },
+            {
+                id: 14,
+                coords: [56.2264, 43.9017],
+                type: "metro",
+                title: "Депо «Автозаводское» (закрытый сектор)",
+                security: 1,
+                access: 3,
+                description: "Неиспользуемые пути и ремонтные цеха. Периодическое патрулирование.",
+                condition: "Плохое",
+                last_update: "2023-09-01"
+            },
+            {
+                id: 31,
+                coords: [56.2900, 44.0800],
+                type: "metro",
+                title: "Психиатрическая больница в Ляхово",
+                security: 0,
+                access: 1,
+                description: "Заброшенный корпус 1899 г. Легенды о призраке школьницы-самоубийцы. Аварийные перекрытия.",
+                condition: "Аварийное",
+                last_update: "2025-07-01",
+                danger: true
+            },
+            
+            // Люки (7 объектов)
+            {
+                id: 15,
+                coords: [56.3350, 43.9925],
+                type: "hatch",
+                title: "Люки теплотрассы на Зеленском съезде",
+                security: 0,
+                access: 1,
+                description: "Сеть технических колодцев заброшенной тепломагистрали. Частично открыт доступ.",
+                condition: "Опасное",
+                last_update: "2023-08-18",
+                danger: true
+            },
+            {
+                id: 16,
+                coords: [56.2708, 43.9200],
+                type: "hatch",
+                title: "Система технических люков завода «Красное Сормово»",
+                security: 1,
+                access: 2,
+                description: "Подземные коммуникации бывшего цеха №15. Затоплены на 30%.",
+                condition: "Аварийное",
+                last_update: "2023-07-25"
+            },
+            {
+                id: 17,
+                coords: [56.3194, 44.0250],
+                type: "hatch",
+                title: "Люки кабельной канализации на Б. Покровской",
+                security: 0,
+                access: 1,
+                description: "Заброшенная система под старым городом. Глубина до 12 метров.",
+                condition: "Среднее",
+                last_update: "2023-08-30"
+            },
+            {
+                id: 18,
+                coords: [56.3578, 43.8667],
+                type: "hatch",
+                title: "Военные коммуникации в Щёлоковском хуторе",
+                security: 1,
+                access: 3,
+                description: "Система подземных ходов 1950-х годов. Стальные гермолюки.",
+                condition: "Хорошее",
+                last_update: "2023-09-02"
+            },
+            {
+                id: 19,
+                coords: [56.3056, 43.9556],
+                type: "hatch",
+                title: "Заброшенные коллекторы на Мещере",
+                security: 0,
+                access: 2,
+                description: "Дренажная система бывшего болота. Заросшие люки в лесопарковой зоне.",
+                condition: "Плохое",
+                last_update: "2023-08-28"
+            },
+            {
+                id: 29,
+                coords: [56.3550, 43.8550],
+                type: "hatch",
+                title: "Завод «Нефтегаз»",
+                security: 0,
+                access: 1,
+                description: "Заброшенные цеха и «колизеи» 1873 г. постройки. Химические озёра, агрессивные бродячие собаки.",
+                condition: "Опасное",
+                last_update: "2025-07-01",
+                danger: true
+            },
+            {
+                id: 30,
+                coords: [56.3280, 43.9750],
+                type: "hatch",
+                title: "Мукомольный завод Башкировых",
+                security: 1,
+                access: 2,
+                description: "Первое производство элитной крупытки в РФ. Снят в сериале «Метод». Частично охраняется.",
+                condition: "Среднее",
+                last_update: "2025-07-01"
+            },
+            
+            // Водоканал (13 объектов)
+            {
+                id: 20,
+                coords: [56.3400, 43.9800],
+                type: "vodokanal",
+                title: "Старая насосная станция",
+                security: 1,
+                access: 2,
+                description: "Заброшенная станция 1950-х годов. Сохранились трубы и механизмы.",
+                condition: "Среднее",
+                last_update: "2023-08-20",
+                danger: true
+            },
+            {
+                id: 21,
+                coords: [56.2500, 43.4800],
+                type: "vodokanal",
+                title: "Резервный водозабор Автозавода",
+                security: 2,
+                access: 4,
+                description: "Подземные цистерны на 5000 м³. Охраняется, сигнализация.",
+                condition: "Хорошее",
+                last_update: "2023-07-15"
+            },
+            {
+                id: 22,
+                coords: [56.3650, 43.8400],
+                type: "vodokanal",
+                title: "Фильтровальная станция в Сормово",
+                security: 0,
+                access: 1,
+                description: "Заброшена в 2005 году. Сохранились фильтры и химические емкости.",
+                condition: "Аварийное",
+                last_update: "2023-08-25"
+            },
+            {
+                id: 23,
+                coords: [56.2850, 44.0750],
+                type: "vodokanal",
+                title: "Станция перекачки в Ленинском районе",
+                security: 1,
+                access: 2,
+                description: "Недействующая с 2010 года. Оборудование демонтировано частично.",
+                condition: "Плохое",
+                last_update: "2023-09-03"
+            },
+            {
+                id: 24,
+                coords: [56.3200, 43.9200],
+                type: "vodokanal",
+                title: "Аварийный резервуар Молитовского моста",
+                security: 0,
+                access: 3,
+                description: "Подопорные конструкции моста. Частично затоплен.",
+                condition: "Опасное",
+                last_update: "2023-08-17",
+                danger: true
+            },
+            {
+                id: 25,
+                coords: [56.3000, 44.1000],
+                type: "vodokanal",
+                title: "Заброшенные очистные Мызы",
+                security: 1,
+                access: 2,
+                description: "Комплекс 1960-х годов. Сохранились отстойники и лабораторный корпус.",
+                condition: "Аварийное",
+                last_update: "2023-08-29"
+            },
+            {
+                id: 27,
+                coords: [56.3200, 43.9400],
+                type: "vodokanal",
+                title: "Куйбышевская водокачка",
+                security: 0,
+                access: 2,
+                description: "Построена в 1880 г., заброшена в 1988 г. Место сатанинских ритуалов 1990-х, глубокие резервуары-ловушки.",
+                condition: "Аварийное",
+                last_update: "2025-07-01",
+                danger: true
+            },
+            {
+                id: 33,
+                coords: [56.3100, 43.7000],
+                type: "vodokanal",
+                title: "Лагерь «Чайка»",
+                security: 0,
+                access: 1,
+                description: "Заброшен с 2002 г. Ржавый бассейн, деревянные корпуса. Планы перестройки в молодёжный центр заморожены.",
+                condition: "Плохое",
+                last_update: "2025-07-01"
+            },
+            {
+                id: 35,
+                coords: [56.3650, 43.8300],
+                type: "vodokanal",
+                title: "Сормовская нефтебаза",
+                security: 2,
+                access: 4,
+                description: "Нефтяные озёра, токсичные испарения. Официально закрыта для доступа.",
+                condition: "Опасное",
+                last_update: "2025-07-01",
+                danger: true
+            }
+        ];
+
+        // Переменные для хранения маркеров
+        let markers = [];
+        let currentMarkers = [];
+        
+        // Функция для отрисовки объектов на карте
+        function renderObjects(objects) {
+            // Очищаем предыдущие маркеры
+            currentMarkers.forEach(marker => map.removeLayer(marker));
+            currentMarkers = [];
+            
+            // Добавляем новые маркеры
+            objects.forEach(obj => {
+                const marker = L.marker(obj.coords, {
+                    icon: icons[obj.type] || icons.bunker
+                }).addTo(map);
+                
+                // Сложность проникновения (точки)
+                let accessDots = '';
+                for (let i = 1; i <= 4; i++) {
+                    accessDots += `<div class="access-dot ${i <= obj.access ? 'active' : ''}"></div>`;
+                }
+                
+                // Текстовые описания
+                const securityText = [
+                    'Без охраны', 
+                    'Периодическая охрана', 
+                    'Постоянная охрана'
+                ][obj.security] || 'Неизвестно';
+                
+                const accessText = [
+                    'Легко (открытый доступ)',
+                    'Средне (требуется инструмент)',
+                    'Сложно (препятствия, замки)',
+                    'Очень сложно (охрана, сигнализация)'
+                ][obj.access-1] || 'Неизвестно';
+                
+                const securityClass = [
+                    'security-low',
+                    'security-medium',
+                    'security-high'
+                ][obj.security];
+                
+                marker.bindPopup(`
+                    <div style="min-width:280px">
+                        <div style="display:flex; justify-content:space-between; align-items:center">
+                            <h3 style="margin:0">${obj.title}</h3>
+                            <div class="security-indicator ${securityClass}">
+                                ${securityText}
+                            </div>
+                        </div>
+                        
+                        <div style="margin:12px 0; font-size:14px">
+                            ${obj.description}
+                        </div>
+                        
+                        <div>
+                            <b>Сложность проникновения:</b>
+                            <div class="access-indicator">${accessDots}</div>
+                            <small>${accessText}</small>
+                        </div>
+                        
+                        <div style="margin-top:12px; font-size:13px; color:#555">
+                            <div><b>Состояние:</b> ${obj.condition}</div>
+                            <div><b>Обновлено:</b> ${obj.last_update}</div>
+                            ${obj.danger ? '<div class="danger-badge">⚠️ Опасный объект</div>' : ''}
+                        </div>
+                    </div>
+                `);
+                
+                // Сохраняем маркер
+                currentMarkers.push(marker);
+                
+                // Обработчик клика на маркер
+                marker.on('click', function() {
+                    // Центрируем карту на маркере
+                    map.setView(obj.coords, 16);
+                });
+            });
+        }
+        
+        // Функция для отображения списка объектов
+        function renderObjectsList(objects) {
+            const container = document.getElementById('objects-container');
+            container.innerHTML = '';
+            
+            objects.forEach(obj => {
+                const securityClass = [
+                    'security-low',
+                    'security-medium',
+                    'security-high'
+                ][obj.security];
+                
+                const securityText = [
+                    'Без охраны', 
+                    'Периодическая', 
+                    'Постоянная'
+                ][obj.security] || 'Неизвестно';
+                
+                const item = document.createElement('div');
+                item.className = `object-item ${obj.type}`;
+                item.innerHTML = `
+                    <div class="object-title">
+                        <i class="fas ${obj.type === 'bunker' ? 'fa-radiation' : 
+                                       obj.type === 'metro' ? 'fa-subway' : 
+                                       obj.type === 'hatch' ? 'fa-warehouse' : 
+                                       'fa-faucet'}"></i>
+                        ${obj.title}
+                        <span class="security-indicator ${securityClass}">${securityText}</span>
+                    </div>
+                    <div>${obj.description.substring(0, 80)}...</div>
+                    <div class="object-meta">
+                        <span>Сложность: ${obj.access}/4</span>
+                        <span>${obj.last_update}</span>
+                    </div>
+                `;
+                
+                // Обработчик клика на объект в списке
+                item.addEventListener('click', function() {
+                    // Центрируем карту на объекте
+                    map.setView(obj.coords, 16);
+                    
+                    // Открываем попап маркера
+                    const marker = currentMarkers.find(m => 
+                        m.getLatLng().lat === obj.coords[0] && 
+                        m.getLatLng().lng === obj.coords[1]
+                    );
+                    
+                    if (marker) {
+                        marker.openPopup();
+                    }
+                });
+                
+                container.appendChild(item);
+            });
+        }
+        
+        // Инициализация карты
+        function initMap() {
+            // Отображаем все объекты по умолчанию
+            renderObjects(locations);
+            renderObjectsList(locations);
+            
+            // Обработчики фильтров
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Удаляем активный класс со всех кнопок
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    
+                    // Добавляем активный класс текущей кнопке
+                    this.classList.add('active');
+                    
+                    const security = this.dataset.security;
+                    
+                    // Фильтрация объектов
+                    let filteredObjects;
+                    if (security === 'all') {
+                        filteredObjects = locations;
+                    } else {
+                        filteredObjects = locations.filter(obj => obj.security == security);
+                    }
+                    
+                    // Обновляем карту и список
+                    renderObjects(filteredObjects);
+                    renderObjectsList(filteredObjects);
+                });
+            });
+            
+            // Обработчик поиска
+            document.getElementById('search-input').addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                
+                const filteredObjects = locations.filter(obj => 
+                    obj.title.toLowerCase().includes(searchTerm) || 
+                    obj.description.toLowerCase().includes(searchTerm)
+                );
+                
+                renderObjects(filteredObjects);
+                renderObjectsList(filteredObjects);
+            });
+        }
+        
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', initMap);
+        
+        // Telegram WebApp
+        if (typeof Telegram !== 'undefined') {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+    </script>
+</body>
+</html>
